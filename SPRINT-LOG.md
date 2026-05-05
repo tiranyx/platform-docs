@@ -24,25 +24,28 @@ Setiap sprint punya:
 **Objective:** Website menampilkan harga semua produk + dokumen Midtrans siap submit
 
 **Success Criteria:**
-- [ ] Semua produk di /products punya harga yang tampil
-- [ ] 11 halaman /products/[slug] live dengan FAQ
-- [ ] /tools menampilkan "Free / Pro Rp 99rb/bln"
-- [ ] /services on-demand menampilkan range harga
-- [ ] PRODUCT-LIST.md + TRANSACTION-FLOW.md lengkap
+- [x] Semua produk di /products punya harga yang tampil
+- [x] /products/[slug] live dengan FAQ + pricing tiers
+- [x] /tools menampilkan "Gratis Nx/hari → Pro Rp 99rb/bln"
+- [x] /services on-demand menampilkan range harga
+- [x] PRODUCT-LIST.md + TRANSACTION-FLOW.md lengkap
 - [ ] Dokumen alur transaksi siap PDF
 
 **Sprint Backlog:**
 ```
-[ ] Redesign /products page — tambah pricing cards
-[ ] Buat /products/[slug] template + 11 implementasi
-[ ] Buat product_faq admin interface
-[ ] Tambah harga ke /tools listing
-[ ] Tambah harga ke /services on-demand section
+[x] Redesign /products page — tambah pricing cards (DONE 2026-05-05)
+[x] Buat /products/[slug] template — 6 slug live (DONE 2026-05-05)
+[x] Buat product_faq admin interface di /admin/products (DONE 2026-05-05)
+[x] Tambah harga ke /tools listing (DONE 2026-05-05)
+[x] Tambah harga ke /services on-demand section (DONE 2026-05-05)
+[x] Tulis midtrans/PRODUCT-LIST.md (DONE 2026-05-05)
+[x] Tulis midtrans/TRANSACTION-FLOW.md (DONE 2026-05-05)
+[x] DB migration: products, pricing_tiers, faq, how_it_works (DONE 2026-05-05)
+[x] Deploy ke VPS + build fix (DONE 2026-05-05)
 [ ] Tambah harga ke /demos (atau "Request Demo")
-[ ] Tulis midtrans/PRODUCT-LIST.md
-[ ] Tulis midtrans/TRANSACTION-FLOW.md
 [ ] Generate TRANSACTION-FLOW.pdf
 [ ] Research: kebutuhan Kominfo PSE untuk live streaming service
+[ ] White-label section di /products sudah ada, tapi perlu /products/[slug] untuk white-label produk
 ```
 
 **Daily Log:**
@@ -73,22 +76,31 @@ NEXT:
 - Mulai sprint coding: tambah harga ke /products
 ```
 
-#### 2026-05-06 (Selasa) — Template
+#### 2026-05-05 — Sesi 2 (Sprint 0 Coding)
 ```
 SELESAI:
-- [ ] 
-
-IN PROGRESS:
-- [ ] 
+- [x] S0-01: /products page redesign — 3 section (SaaS, On-demand, White-label), IDR pricing cards
+- [x] S0-03: /products/[slug] page template — hero, how it works, pricing tiers, FAQ
+- [x] lib/products-data.ts — 6 produk dengan full detail, pricing, FAQ, how-it-works
+- [x] lib/tools-data.ts — tambah priceMonthly, priceYearly, freeQuota fields
+- [x] /tools page — tambah pricing row "Gratis Nx/hari → Pro Rp 99rb/bln"
+- [x] DB migration: products, product_pricing_tiers, product_faq, product_how_it_works + seeding
+- [x] Admin CRUD: /admin/products list + toggle published API
+- [x] Deploy ke VPS — fix next.config.ts (remove turbopack path.join), rebuild better-sqlite3
+- [x] Build + pm2 restart sukses, semua route 200
 
 TEMUAN:
-- 
+- next.config.ts: path.join(__dirname) dalam turbopack config menyebabkan compile error
+- VPS Node.js v20 tapi better-sqlite3 dikompil untuk v24 → perlu npm rebuild
+- @anthropic-ai/sdk dan @google/genai tidak ada di package.json tapi dipakai di code → install manual
+- /products/[slug] untuk white-label (sociyx, wa-suite, opix-crm, bot-gateway) belum ada — masih return 404
 
 BLOCKER:
-- 
+- Tidak ada (semua terselesaikan)
 
 NEXT:
-- 
+- Sprint 0 remaining: /demos pricing, PDF TRANSACTION-FLOW, Kominfo PSE research
+- Sprint 1: Auth system (register/login), Midtrans sandbox integration
 ```
 
 ---

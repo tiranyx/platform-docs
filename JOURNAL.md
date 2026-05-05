@@ -21,6 +21,82 @@ Setiap entri berisi:
 
 ---
 
+### 2026-05-05 | Sesi 2 — Sprint 0 Coding: Products, Pricing, Admin
+
+**Status:** ✅ Selesai — semua target Sprint 0 coding phase terpenuhi, live di VPS
+
+**Konteks sesi:**
+Lanjut dari Sesi 1. Mulai coding Sprint 0: tambah pricing ke semua halaman produk, buat /products/[slug] detail pages, admin CRUD, dan deploy ke VPS.
+
+**Yang dikerjakan:**
+
+1. **`app/(site)/products/page.tsx`** — Redesign penuh:
+   - Tambah 3 section: SaaS Platforms (6 produk + harga), On-Demand Services (6 layanan + range harga IDR), White-label Bundles (4 produk + setup/monthly pricing)
+   - Setiap SaaS card: pricing box (monthly + yearly + hemat info), dual CTA ("Lihat Detail" → /products/[slug] + "Tanya Sales" → WA)
+   - On-demand: harga range IDR + timeline tampil (bukan "Per project" lagi)
+   - White-label: setup price + monthly license + delivery info
+
+2. **`lib/products-data.ts`** — File baru (tidak ada sebelumnya):
+   - 6 produk SaaS dengan full detail: heroFeatures, pricingTiers (starter + pro), howItWorks (4 step), FAQs (4 Q&A), paymentNote, whatsappText
+   - Bisa jadi source of truth atau akan diganti DB-driven nanti
+
+3. **`app/(site)/products/[slug]/page.tsx`** — File baru:
+   - Breadcrumb navigation, hero dengan status badge + kategori
+   - Sections: hero features grid, description, how-it-works (4 steps), pricing tiers (highlighted + regular), FAQ cards
+   - Payment methods note, WhatsApp CTA, back to products link
+   - generateStaticParams + generateMetadata untuk SEO
+
+4. **`lib/tools-data.ts`** — ToolDef interface ditambah: `freeQuota?`, `priceMonthly?`, `priceYearly?`. Semua 6 tools diupdate dengan pricing (Rp 99.000/bulan Pro).
+
+5. **`app/(site)/tools/page.tsx`** — Tambah pricing row di setiap tool card: "Gratis 5×/hari → Pro Rp 99rb/bln".
+
+6. **`lib/db/migrations-products.ts`** — File baru:
+   - CREATE TABLE: products, product_pricing_tiers, product_faq, product_how_it_works
+   - Seed otomatis dari `lib/products-data.ts` saat tabel kosong
+
+7. **`lib/db/products.ts`** — File baru: query helpers (getAllProducts, getProductBySlug, updateProductPublished, dll).
+
+8. **`lib/db/schema.ts`** — Tambah import + call `runProductMigrations(db)`.
+
+9. **`app/admin/(protected)/products/page.tsx`** + **`ProductsTable.tsx`** — Admin list dengan toggle published, preview + edit link.
+
+10. **`app/api/admin/products/toggle-published/route.ts`** — API endpoint untuk toggle is_published.
+
+11. **`app/admin/AdminLayoutClient.tsx`** — Tambah nav item "Products" (💎).
+
+12. **`next.config.ts`** — Fix: hapus `turbopack: { root: path.join(__dirname) }` yang menyebabkan build error di VPS.
+
+**Temuan penting:**
+
+1. **next.config.ts turbopack bug**: `path.join(__dirname)` dalam konteks TypeScript compiled config di Next.js 16 menyebabkan `_path.default.join is not a function`. Fix: hapus konfigurasi turbopack root dari config.
+
+2. **VPS Node.js mismatch**: VPS punya Node.js v20 tapi better-sqlite3 dikompil untuk v24 (dari developer lokal). Solusi: `npm rebuild better-sqlite3` di VPS setelah upload.
+
+3. **Missing packages**: `@anthropic-ai/sdk` dan `@google/genai` dipakai di kode tapi tidak ada di package.json. Harus install manual di VPS. Perlu ditambahkan ke package.json lokal.
+
+4. **White-label slugs**: `/products/sociyx-whitelabel`, `/products/wa-agency-suite`, dll. tampil di /products page tapi link `/products/[slug]` akan 404 karena tidak ada di `PRODUCTS` array di products-data.ts. Perlu tambah entri atau buat halaman terpisah.
+
+**Keputusan:**
+- Tidak hapus white-label section karena Midtrans membutuhkan harga tampil — CTA-nya menuju WA, bukan detail page
+- products-data.ts sebagai static source of truth untuk fase 0; fase 1 akan DB-driven
+- Pricing halaman tools tidak di-hardcode; dibaca dari tools-data.ts field baru
+
+**State deployment:**
+- Build sukses di VPS (Node v20)
+- PM2 id:5 "tiranyx" restart ✅
+- Routes verified: /products 200, /products/market-intelligence 200, /tools 200, /admin/products 307 (→ login)
+- Nginx cache cleared
+
+**Handoff untuk sesi berikutnya:**
+- Todo: tambah 4 white-label produk ke products-data.ts (atau buat halaman khusus)
+- Todo: tambah @anthropic-ai/sdk + @google/genai ke package.json lokal
+- Todo: /demos pricing (Request Demo vs harga)
+- Todo: generate PDF TRANSACTION-FLOW
+- Sprint 1: auth system, Midtrans sandbox
+- PR lokal: perlu git commit + push ke fahmiwol/tiranyx-web
+
+---
+
 ### 2026-05-05 | Sesi 1 — Riset & Dokumentasi Awal
 
 **Status:** ✅ Selesai (dokumentasi), 🔄 Coding belum mulai
