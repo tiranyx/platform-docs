@@ -1142,6 +1142,257 @@ Redirect:
 
 ---
 
+---
+
+## 15. ADDENDUM — User Clarifications 2026-05-05 (LATEST)
+
+### 15.1. User Types — Simplified to 4 (override section 14)
+
+```
+1. PERSONAL          ← Public user (registered or guest)
+                     ← Use freemium tools, top-up koin, beli SaaS subscription
+                     ← Dashboard: /dashboard
+
+2. CLIENT            ← B2B agency client
+                     ← Subscribe layanan, manage services
+                     ← Dashboard: opix.tiranyx.co.id (SEPARATE app)
+
+3. INTERNAL TIRANYX  ← Tim Tiranyx (project manager, content writer, sales, dll)
+                     ← Manage client services, bantu klien
+                     ← Dashboard: opix.tiranyx.co.id (SEPARATE app, role-based)
+
+4. ADMIN             ← Fahmi + super admin
+                     ← Full CMS + system config
+                     ← Dashboard: /admin (di tiranyx.co.id)
+```
+
+**Simplifikasi:**
+- ❌ Hapus: Pro, Affiliate, Beta sebagai user types (those are sub-states, bukan separate type)
+- ✅ Personal user bisa jadi Beta (sub-state) — beli founding member tetap Personal type
+- ✅ Personal bisa subscribe SaaS — sub-state "subscription_active"
+- ✅ Affiliate program optional later (sub-state lagi, bukan type baru)
+
+### 15.2. Routing per User Type
+
+```
+[User type]              [Route]                          [Auth]
+PERSONAL (registered)    /dashboard/*                     ← user-auth
+PERSONAL (guest)         /                                ← no auth
+CLIENT + INTERNAL        opix.tiranyx.co.id (separate)    ← own auth
+ADMIN                    /admin/*                         ← admin-auth
+```
+
+**Important:**
+- `tiranyx.co.id` = public + personal user dashboard + admin
+- `opix.tiranyx.co.id` = client + internal team management (sudah separate Hono app)
+- DON'T merge OPIX into main site
+
+### 15.3. Order Flow CORRECTION — Flow D, E, F via Manual Invoice
+
+**Override Flow D, E, F yang automatic Midtrans Snap:**
+
+User clarifies: **Flow D (SaaS), E (White-label), F (Beta Founding) = MANUAL INVOICE flow**, bukan inline Snap.
+
+```
+[User] → Order form (nama, email, WA, produk, amount/tier)
+       → Submit form
+       → Form data:
+         - Saved ke DB (status='pending_invoice')
+         - Notif ke admin WA (otomatis via Fonnte/Wablas)
+       → Admin terima notif WA
+       → Admin chat user via WA (clarify scope, custom requirements)
+       → Admin create invoice via Midtrans Invoice API (atau panel manual)
+       → Midtrans generate payment link
+       → Admin kirim link payment via WA + email ke user
+       → User klik link → bayar (credit card / VA / e-wallet)
+       → Webhook confirm paid → status='paid' di DB
+       → Admin manual kirim credentials/bundle via email:
+         - SaaS: subscription credentials + onboarding doc
+         - White-label: GitHub access invitation + setup docs
+         - Founding Member: product access + community invite
+       → Status='delivered' di DB
+       → User dashboard menampilkan history + delivery
+```
+
+**Why manual invoice (not Snap):**
+- High-value transactions (>Rp 5M typically)
+- Often custom scope (whitelabel especially)
+- Need human verification (KYC for B2B)
+- Better UX for B2B (sales-led, not self-serve)
+
+**Snap is OK for:**
+- Flow A (Utility tools Pro) — small price (Rp 99k/month), self-serve
+- Flow B (AI tools coin top-up) — instant gratification
+- Flow C (Live demo upsell) — small SaaS subs
+
+### 15.4. Order Flow Re-categorization
+
+| Flow | Category | Payment Method | Confirmation |
+|------|----------|---------------|--------------|
+| A | Utility tools Pro subscription | **Midtrans Snap** (auto) | Instant |
+| B | AI tools coin top-up | **Midtrans Snap** (auto) | Instant |
+| C | Live demo → small SaaS | **Midtrans Snap** (auto) | Instant |
+| **D** | **SaaS subscription B2B** | **Manual Invoice via WA** | Admin sends |
+| **E** | **White-label bundle** | **Manual Invoice via WA** | Admin sends |
+| **F** | **Founding Member (guest)** | **Manual Invoice via WA** | Admin sends |
+| **G** | **On-demand services** | **Manual Invoice via WA** | Admin sends |
+
+### 15.5. New Database Tables for Manual Invoice Flow
+
+```sql
+-- orders.db
+CREATE TABLE order_inquiries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  inquiry_id TEXT UNIQUE,
+  type TEXT,  -- 'saas' | 'whitelabel' | 'founding-member' | 'service'
+  product_slug TEXT,
+  customer_name TEXT,
+  customer_email TEXT,
+  customer_wa TEXT,
+  customer_telegram TEXT,
+  amount_idr INTEGER,
+  amount_usd REAL,
+  custom_notes TEXT,
+  status TEXT DEFAULT 'new',  -- 'new' | 'reviewed' | 'invoice_sent' | 'paid' | 'delivered' | 'cancelled'
+  invoice_url TEXT,           -- Midtrans invoice link
+  payment_method TEXT,
+  paid_at TEXT,
+  delivery_notes TEXT,
+  delivered_at TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE order_inquiry_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  inquiry_id TEXT,
+  sender TEXT,  -- 'admin' | 'customer' | 'system'
+  channel TEXT, -- 'wa' | 'email' | 'in-app'
+  content TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (inquiry_id) REFERENCES order_inquiries(inquiry_id)
+);
+```
+
+### 15.6. Admin Panel Scope (Confirmed)
+
+```
+/admin/                           ← Dashboard overview (stats)
+├── /cms/                         ← CONTENT MANAGEMENT
+│   ├── /pages                    ← Static pages (about, contact, dll)
+│   ├── /posts                    ← Blog posts CRUD
+│   ├── /content/sections         ← Page sections (hero, CTA blocks)
+│   ├── /content/case-studies
+│   ├── /content/portfolio
+│   ├── /content/resources
+│   └── /content/demos
+│
+├── /users/                       ← USER MANAGEMENT (Personal users)
+│   ├── /users                    ← List all
+│   ├── /users/[id]               ← Detail + edit role + history
+│   ├── /users/[id]/orders        ← User order history
+│   └── /users/[id]/wallet        ← User wallet balance + transactions
+│
+├── /clients/                     ← CLIENT MANAGEMENT (B2B)
+│   ├── /clients                  ← List all clients
+│   ├── /clients/[id]             ← Detail + services + invoices
+│   ├── /clients/[id]/services    ← Active services per client
+│   └── /clients/[id]/messages    ← WA chat history (synced from Fonnte)
+│
+├── /products/                    ← PRODUCT MANAGEMENT
+│   ├── /products                 ← List all (SaaS + tools + services)
+│   ├── /products/[id]            ← Edit details + pricing + tiers
+│   ├── /products/[id]/faq        ← FAQ CRUD per product
+│   ├── /products/[id]/howto      ← How-to-use CRUD
+│   └── /products/[id]/delivery   ← Delivery type + instructions
+│
+├── /orders/                      ← ORDER MANAGEMENT (all types)
+│   ├── /orders                   ← List all (filter by type/status)
+│   ├── /orders/[id]              ← Order detail
+│   ├── /orders/[id]/invoice      ← Generate Midtrans invoice
+│   ├── /orders/[id]/messages     ← Chat history
+│   └── /orders/[id]/deliver      ← Mark delivered + send creds via email
+│
+├── /tools/                       ← TOOLS MANAGEMENT
+│   ├── /tools                    ← List + enable/disable
+│   ├── /tools/[id]/usage         ← Usage stats + cost
+│   └── /tools/[id]/quota         ← Edit free quota
+│
+├── /settings/                    ← SITE SETTINGS
+│   ├── /settings/site            ← Title, description, logo, colors
+│   ├── /settings/seo             ← Robots, sitemap, GA, GTM
+│   ├── /settings/payments        ← Midtrans + PayPal config
+│   ├── /settings/notifications   ← Fonnte WA, email SMTP
+│   └── /settings/team            ← Internal team members
+│
+└── /analytics/                   ← ANALYTICS DASHBOARD
+    ├── /analytics/revenue        ← Revenue by month + by product
+    ├── /analytics/users          ← User growth + activity
+    └── /analytics/orders         ← Conversion funnel
+```
+
+### 15.7. Order Form Pages (Manual Invoice Flow)
+
+Setiap product yang pakai manual invoice butuh order form page:
+
+```
+/products/<slug>/order        ← Order form (D: SaaS subscription)
+/saas/<slug>/order            ← Order form (E: White-label)
+/products/<beta-slug>/join    ← Order form (F: Founding member)
+/services/<slug>/order        ← Order form (G: On-demand service)
+```
+
+**Form fields generic:**
+- Nama lengkap (required)
+- Email (required, validated)
+- WhatsApp (required)
+- Telegram (optional)
+- Company / Brand (for B2B)
+- Custom requirements / Scope notes
+- Budget range / Amount (USD or IDR)
+- Preferred contact time
+
+**On submit:**
+1. POST to `/api/orders/inquiry` → save to `order_inquiries` table
+2. Trigger Fonnte WA notif ke admin: "New {type} inquiry from {name}, slug={product_slug}"
+3. Auto-reply WA ke customer: "Thanks {name}, tim kami akan reach out dalam 1-24 jam"
+4. Show success page: "Inquiry received! Cek WA/email Anda"
+
+### 15.8. opix.tiranyx.co.id — Client x Internal Team
+
+**Status:** SEPARATE Hono app (sudah ada di apix.tiranyx.co.id, di-rebrand ke opix)
+
+**Scope opix:**
+- Client: Browse own services, view invoices, message internal team
+- Internal: View all clients, manage services, send invoices, fulfill orders
+
+**Integration dengan tiranyx.co.id:**
+- Auth shared (single sign-on via cookie domain `*.tiranyx.co.id`)
+- Order inquiries from tiranyx.co.id (Flow D, E, F, G) → forwarded to opix queue
+- Admin di tiranyx.co.id sees same inquiries from opix dashboard
+
+**Decision needed:** Apakah opix lanjut sebagai separate app atau merge?
+- Recommend: **STAY SEPARATE**
+- Reason: Different audience (B2B clients), different UX (operations-heavy), different deployment
+- Just sync auth + order data via shared DB or API
+
+### 15.9. Updated Decision Points
+
+**Decision 7 REVISED: User type granularity**
+- [x] **A. 4 types** (Personal, Client, Internal, Admin) — CONFIRMED by user
+
+**Decision 8 NEW: Manual invoice flow scope**
+- [ ] **A. Flow D, E, F, G all manual** (RECOMMENDED — high-value B2B, custom scope)
+- [ ] B. Only Flow E, F, G manual (D = automatic SaaS Snap)
+- [ ] C. Only Flow F, G manual (D, E = automatic)
+
+**Decision 9 NEW: opix integration**
+- [ ] **A. Stay separate, sync auth + orders via API** (RECOMMENDED)
+- [ ] B. Merge opix into tiranyx.co.id `/client/*` routes
+- [ ] C. Defer opix integration to Phase 7+
+
+---
+
 **Total docs di tiranyx-web/docs/:**
 - USER-CONCERNS-2026-05-05.md (8 concerns plan)
 - COGNITIVE-FINDINGS-2026-05-05.md (root cause analysis)
